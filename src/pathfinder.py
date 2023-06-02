@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import math
 
 import numpy as np
@@ -17,19 +16,18 @@ from heapq import heappush, heappop
 OCCUPANCY_THRESHOLD = 50  # occupancy probabilities are in the range [0,100].  Unknown is -1.
 
 
-"""""""Pathfinding Functions"""""""""
 class Grid:
     """Adapted from the Grid example code provided in class.
          Converts an OccupancyGrid into a 2D matrix. Encapsulates all functions pertaining to the grid itself"""
     def __init__(self, grid_data, width, height, resolution):
         self.grid = np.reshape(grid_data, (height, width))
-
         self.width = width
         self.height = height
         self.resolution = resolution
 
     def cell_at(self, x, y):
         """Returns value of cell at x,y"""
+        # print("cell at " + str(x) + " " + str(y) + " " + str(self.grid[y, x]))
         return self.grid[y, x]
 
     def cell_to_point(self, col, row):
@@ -92,6 +90,34 @@ class PathFinder:
             is_valid = False
 
         return is_valid
+    
+    def find_closest_valid_cell(self, point):
+        # Initialize a queue with the start point
+        queue = [point]
+        visited = []
+
+        # While there are points to process
+        while queue:
+            # Pop the first point
+            newPoint = queue.pop(0)
+
+            # If this point is not an obstacle
+            if not self.grid.is_occupied(newPoint[0], newPoint[1]):
+                # If there are free neighbors
+                if all(not self.grid.is_occupied(neighbor[0], neighbor[1]) for neighbor in self.get_neighbors(newPoint, x=3, valid=False)):
+                    # Return it
+                    return newPoint
+
+            # Else, add its neighbors to the queue
+            for neighbor in self.get_neighbors(newPoint, valid=False):
+                if neighbor not in visited:
+                    visited.append(neighbor)
+                    queue.append(neighbor)
+
+        # If no points are found, return None
+        print("No valid cell found")
+        return None
+   
 
     def euclidian_heuristic(self, state):
         """Returns euclidian distance from position in current state and in goal state"""
@@ -99,23 +125,32 @@ class PathFinder:
         y_distance = self.goal_state[1] - state[1]
         return math.sqrt(x_distance ** 2 + y_distance ** 2)
 
-    def get_neighbors(self, state):
-        """Finds all valid moves from current state. Possible moves are left, right, up, down, and diagonals.
+    def get_neighbors(self, state, x=1, valid=True):
+        """Finds all valid moves from current state, x steps away. Possible moves are left, right, up, down, and diagonals.
 
-        Representation of grid of neighbors:
+        Representation of grid of neighbors for x = 1:
                 (-1,1)  (0,1)   (1,1)
                 (-1,0)  <here>  (1,0)
                 (-1,-1) (0,-1)  (1,-1)
+
+        For x > 1, it expands this grid proportionately.
         """
         neighbors = []
-        directions_to_move = [(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)]
+        # Multiplying directions_to_move by x to get the further neighbors
+        directions_to_move = [(x*-1, x*1), (0, x*1), (x*1, x*1), 
+                              (x*-1, 0),                (x*1, 0), 
+                              (x*-1, x*-1), (0, x*-1), (x*1, x*-1)]
 
         for direction in directions_to_move:
             new_pos = (state[0] + direction[0], state[1] + direction[1])
-            if not self.grid.is_occupied(new_pos[0], new_pos[1]):
+            if valid:
+              if not self.grid.is_occupied(new_pos[0], new_pos[1]):
+                  neighbors.append(new_pos)
+            else:
                 neighbors.append(new_pos)
 
         return neighbors
+
 
     def get_cost(self, node, child_node):
         """Gets the transition cost between two states. While it is known the cost to move left/right/up/down is 1,
@@ -149,10 +184,23 @@ class Planner:
                 heuristic(node) = euclidian distance from node to goal
          """
         # convert start and goal points into cell format so in the proper reference frame
+        print(start, goal)
+        
         start_cell = self.grid.point_to_cell(start[0], start[1])
         goal_cell = self.grid.point_to_cell(goal[0], goal[1])
-
+        print(start_cell, goal_cell)
         path_finder = PathFinder(self.grid, goal_cell)
+        
+        start_cell = path_finder.find_closest_valid_cell(start_cell)
+        print("Closest free start cell")
+        print(start_cell)
+        goal_cell = path_finder.find_closest_valid_cell(goal_cell)
+        print("Closest free end cell")
+        print(goal_cell)
+        
+
+        # print("valid start: " + str(self.grid.cell_to_point(start_cell[0], start_cell[1])))
+        # print("valid end: " + str(self.grid.cell_to_point(goal_cell[0], goal_cell[1])))
 
         # frontier = new queue
         frontier = []
@@ -193,6 +241,9 @@ class Planner:
                         elif child_cost < explored[child_state]:
                             heappush(frontier, child_node)
                             explored[child_state] = child_cost
+        else:
+            
+            print("No Valid Path")
 
     def backchain(self, node):
         """This method backchains through parents of each A* node to get final path"""
@@ -206,7 +257,6 @@ class Planner:
         result.reverse()
         return result
 
-"""""""RVIZ Functions"""""""""
     def publish_markers(self, path):
         """This method adds a marker at each point in the final path"""
         for mark in range(0, len(path)):
@@ -294,19 +344,58 @@ class Planner:
         """Calculates orientation as quaternion using angle between initial and final point"""
         return tf.transformations.quaternion_from_euler(0, 0, math.atan2(pos_f[1] - pos_i[1], pos_f[0] - pos_i[0]))
 
-"""""""Main"""""""""
+
 def main():
     """main function."""
     rospy.init_node("planner")
     plan = Planner()
+    
+    # manually assigned locations
+    dorms = {
+        "gile": (10,25.1),
+        "mid mass": (14.1 ,21.5),
+        "woodward": (25.5,22),
+        "andre": (28.7, 20.5),
+        "butterfield": (12.3,27.4),
+        "topliff": (23.2,17)
+      }
+      
+    restaurants = {
+        "tuk tuk": (14.75, 15.8),
+        "molly": (15.50, 11.0),
+        "han": (18.50, 10.5),
+        "sushiya": (16.7, 8.0),
+        "center": (16, 16),
+      }
+      
+    path = None
+    
+    # pick the resturant and dorms
+    path = plan.find_path(restaurants["molly"], dorms["butterfield"]) 
 
-    path = plan.find_path((16.5, 16.5), (8, 25))  # change these values to find different paths
-
-    print(path)
-
+    # to display the dorms and resturants on 
+    resolution = 0.05
+    #  convert points to cells
+    for key in restaurants.keys():
+        restaurants[key] = (restaurants[key][0] / resolution, restaurants[key][1] / resolution)
+        
+    for key in dorms.keys():
+        dorms[key] = (dorms[key][0] / resolution, dorms[key][1] / resolution)
+        
+    
     plan.delete_markers()  # clear markers from before
-    plan.publish_markers(path)
-    plan.publish_poses(path)
+    
+    # display rest and dorms
+    plan.publish_markers(restaurants.values())
+    plan.publish_poses(restaurants.values())
+
+    plan.publish_markers(dorms.values())
+    plan.publish_poses(dorms.values())
+    
+    # if path found, display path on rviz
+    if path:
+      plan.publish_markers(path)
+      plan.publish_poses(path)
 
 
 if __name__ == "__main__":
