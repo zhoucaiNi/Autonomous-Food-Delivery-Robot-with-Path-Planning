@@ -11,6 +11,8 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
 from heapq import heappush, heappop
+import tsp
+from delivery import Delivery
 
 # Constants
 OCCUPANCY_THRESHOLD = 50  # occupancy probabilities are in the range [0,100].  Unknown is -1.
@@ -87,6 +89,9 @@ class PathFinder:
 
         # if start and/or goal cell is already occupied by an obstacle, the path is invalid
         elif self.grid.is_occupied(start[0], start[1]) or self.grid.is_occupied(self.goal_state[0], self.goal_state[1]):
+            # print("start occupied: " + str(self.grid.is_occupied(start[0], start[1])))
+            # print("end occupied: " + str(self.grid.is_occupied(self.goal_state[0], self.goal_state[1])))
+            # print("is_path_valid: occupied")
             is_valid = False
 
         return is_valid
@@ -184,23 +189,16 @@ class Planner:
                 heuristic(node) = euclidian distance from node to goal
          """
         # convert start and goal points into cell format so in the proper reference frame
-        print(start, goal)
         
         start_cell = self.grid.point_to_cell(start[0], start[1])
         goal_cell = self.grid.point_to_cell(goal[0], goal[1])
-        print(start_cell, goal_cell)
+        
+        # print(start_cell, goal_cell)
         path_finder = PathFinder(self.grid, goal_cell)
         
         start_cell = path_finder.find_closest_valid_cell(start_cell)
-        print("Closest free start cell")
-        print(start_cell)
         goal_cell = path_finder.find_closest_valid_cell(goal_cell)
-        print("Closest free end cell")
-        print(goal_cell)
-        
-
-        # print("valid start: " + str(self.grid.cell_to_point(start_cell[0], start_cell[1])))
-        # print("valid end: " + str(self.grid.cell_to_point(goal_cell[0], goal_cell[1])))
+        path_finder.goal_state = goal_cell
 
         # frontier = new queue
         frontier = []
@@ -285,8 +283,8 @@ class Planner:
 
             # setting marker size
             marker_msg.color.a = 1
-            marker_msg.scale.x = 0.05
-            marker_msg.scale.y = 0.05
+            marker_msg.scale.x = 0.25
+            marker_msg.scale.y = 0.25
             marker_msg.scale.z = 0.05
 
             # set start node to blue, goal node to green, all other as red
@@ -344,7 +342,6 @@ class Planner:
         """Calculates orientation as quaternion using angle between initial and final point"""
         return tf.transformations.quaternion_from_euler(0, 0, math.atan2(pos_f[1] - pos_i[1], pos_f[0] - pos_i[0]))
 
-
 def main():
     """main function."""
     rospy.init_node("planner")
@@ -365,37 +362,48 @@ def main():
         "molly": (15.50, 11.0),
         "han": (18.50, 10.5),
         "sushiya": (16.7, 8.0),
-        "center": (16, 16),
+        "center" : (16.5, 16.5)
       }
       
+    start = (16, 16)
+    
+    delivery = Delivery(dorms, restaurants, start)
     path = None
     
     # pick the resturant and dorms
-    path = plan.find_path(restaurants["molly"], dorms["butterfield"]) 
+    nameList = ["molly", "tuk tuk", "gile", "woodward"]
+    deliveryList = delivery.getPoints(nameList)
+
+    distances = tsp.create_distance_matrix(deliveryList, plan.find_path)
+    
+    optimal_path, optimal_cost = tsp.tsp_dp(distances, 0)
+    
+    path_format = delivery.pathToNames(nameList, optimal_path)
+      
+    # Print the results
+    print("The optimal path is {} with total cost {}".format(path_format, optimal_cost))
 
     # to display the dorms and resturants on 
     resolution = 0.05
     #  convert points to cells
-    for key in restaurants.keys():
-        restaurants[key] = (restaurants[key][0] / resolution, restaurants[key][1] / resolution)
-        
-    for key in dorms.keys():
-        dorms[key] = (dorms[key][0] / resolution, dorms[key][1] / resolution)
-        
+    r = delivery.pointsToCells(resolution, "restaurants")      
+    d = delivery.pointsToCells(resolution, "dorms")   
     
-    plan.delete_markers()  # clear markers from before
-    
-    # display rest and dorms
-    plan.publish_markers(restaurants.values())
-    plan.publish_poses(restaurants.values())
+    plan.delete_markers()  # clear markers from before 
+    plan.publish_markers(r.values())
+    plan.publish_poses(r.values())
 
-    plan.publish_markers(dorms.values())
-    plan.publish_poses(dorms.values())
+    plan.publish_markers(d.values())
+    plan.publish_poses(d.values())
     
     # if path found, display path on rviz
-    if path:
-      plan.publish_markers(path)
-      plan.publish_poses(path)
+    pathInPoints = delivery.pathToPoints(path_format)
+    print(pathInPoints)
+    for i in range(len(pathInPoints)-1):
+      path = plan.find_path(pathInPoints[i], pathInPoints[i+1])
+      if path:
+        plan.publish_markers(path)
+        plan.publish_poses(path)
 
 
 if __name__ == "__main__":
