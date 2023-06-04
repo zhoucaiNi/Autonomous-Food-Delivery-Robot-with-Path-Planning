@@ -1,3 +1,7 @@
+from node import Node
+from heapq import heappush, heappop
+from pathfinder import PathFinder
+
 def find_path(self, start, goal):
    """Assuming the start and goal points create a valid path, this method implements the A* algorithm (based off
    BFS pseudocode from lec11 slides) to find the path with the smallest cost between the two points.
