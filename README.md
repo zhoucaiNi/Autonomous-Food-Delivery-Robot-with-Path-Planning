@@ -9,7 +9,7 @@ Quick Demo:
 
 https://github.com/zhoucaiNi/cs81-FinalProject/assets/53072233/c5d97d25-9dfd-46bb-81d5-553886c1fa93
 
-
+`path_movment` is responsible for taking the path calculated by pathfinder.py and executing it on the robot in simulation. 
 `path_planning` contains all the modules and classes for path planning
 `map`   contains all the modules for map generation and attempted coordinate transformation
 
