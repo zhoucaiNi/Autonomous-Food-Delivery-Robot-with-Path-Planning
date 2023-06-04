@@ -4,6 +4,12 @@ This repo tackles the challenge of creating an autonomous food delivery robot sp
 
 # Files
 `pathfinder.py` is the main file for rviz visualization for our implementation of multi-delivery planning. (A* and Traveling Salesman Problem)
+
+Quick Demo:
+
+https://github.com/zhoucaiNi/cs81-FinalProject/assets/53072233/c5d97d25-9dfd-46bb-81d5-553886c1fa93
+
+
 `path_planning` contains all the modules and classes for path planning
 `map`   contains all the modules for map generation and attempted coordinate transformation
 
