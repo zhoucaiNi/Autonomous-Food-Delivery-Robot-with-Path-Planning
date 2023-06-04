@@ -2,7 +2,7 @@
 # For simplicity, the distances are randomly generated.
 # In a real-world problem, you would replace these values with actual distances.
 import numpy as np
-from tsp import tsp_dp
+from path_planning.tsp import tsp_dp
 
 distances = np.array([[0, 20, 42, 35, 25],
                       [20, 0, 30, 34, 50],

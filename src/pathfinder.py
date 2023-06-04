@@ -2,13 +2,12 @@
 import math
 
 import numpy as np
-
 # http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/OccupancyGrid.html
 import rospy
-from tsp import tsp_dp as tsp, create_distance_matrix
-from delivery import Delivery
+from path_planning.tsp import tsp_dp as tsp, create_distance_matrix
+from path_planning.delivery import Delivery
 
-import planner
+import path_planning.planner as planner
 
 # Constants
 # OCCUPANCY_THRESHOLD = 50  # occupancy probabilities are in the range [0,100].  Unknown is -1.
