@@ -1,11 +1,12 @@
 import requests
 import sys
+from config import API_KEY
 
 # USAGE: python get_map.py "Hanover, NH"
 
 def save_map(search_phrase):
 
-	api_key = 'AIzaSyAdEr6vxj6p_Fp1YwNmwpbvuEIN3VMJzfU'
+	api_key = API_KEY
 
 	# Prepare the request URL
 	base_url = 'https://maps.googleapis.com/maps/api/staticmap?'
